@@ -1,0 +1,9 @@
+version: '3'
+name: rate-limiter-project
+services:
+  redis-db:
+    image: redis:7.2.4-alpine
+    restart: always
+    container_name: redis-db
+    ports:
+      - 6379:6379

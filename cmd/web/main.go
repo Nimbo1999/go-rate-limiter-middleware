@@ -6,11 +6,15 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/nimbo1999/go-rate-limit/internal/controllers"
+	"github.com/nimbo1999/go-rate-limit/internal/db"
 	"github.com/nimbo1999/go-rate-limit/internal/middlewares"
+	"github.com/nimbo1999/go-rate-limit/internal/repositories"
+	"github.com/nimbo1999/go-rate-limit/internal/services"
 )
 
 func main() {
@@ -25,9 +29,24 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	rdb, err := db.NewRedisClient(context.Background())
+	if err != nil {
+		return err
+	}
+
+	rateLimiterRepository := services.NewRateLimiterRedisChecker(
+		repositories.NewRateLimiterRedisRepository(rdb, time.Minute*10),
+		1,
+		2,
+	)
+
 	// Defining the handler
 	router := chi.NewRouter()
-	router.Use(middleware.RealIP, middlewares.RateLimiter)
+	router.Use(
+		middleware.RealIP,
+		middlewares.ApiKeyRetriever,
+		middlewares.RateLimiter(rateLimiterRepository),
+	)
 	router.Handle("/", &controllers.Handler{})
 	server := http.Server{
 		Addr:    ":8080",

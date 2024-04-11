@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/spf13/viper"
 )
 
 func NewRedisClient(ctx context.Context) (*redis.Client, error) {
@@ -12,10 +13,11 @@ func NewRedisClient(ctx context.Context) (*redis.Client, error) {
 }
 
 func getClient(ctx context.Context) (*redis.Client, error) {
+	fmt.Println(viper.GetString("REDIS_HOST"))
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
+		Addr:     viper.GetString("REDIS_HOST"),
+		Password: viper.GetString("REDIS_PASSWORD"),
+		DB:       viper.GetInt("REDIS_DB"),
 	})
 
 	if _, err := rdb.Ping(ctx).Result(); err != nil {

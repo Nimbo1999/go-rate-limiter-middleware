@@ -2,20 +2,28 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/nimbo1999/go-rate-limit/internal/config"
 	"github.com/nimbo1999/go-rate-limit/internal/controllers"
 	"github.com/nimbo1999/go-rate-limit/internal/db"
 	"github.com/nimbo1999/go-rate-limit/internal/middlewares"
 	"github.com/nimbo1999/go-rate-limit/internal/repositories"
 	"github.com/nimbo1999/go-rate-limit/internal/services"
+	"github.com/spf13/viper"
 )
+
+func init() {
+	if err := config.LoadEnvConfiguration(); err != nil {
+		log.Fatalln(err.Error())
+	}
+}
 
 func main() {
 	if err := run(); err != nil {
@@ -35,13 +43,14 @@ func run() error {
 	}
 
 	rateLimiterRepository := services.NewRateLimiterRedisChecker(
-		repositories.NewRateLimiterRedisRepository(rdb, time.Minute*10),
-		1,
-		2,
+		repositories.NewRateLimiterRedisRepository(rdb, viper.GetDuration("API_BLOQUER_DURATION_IN_SECONDS")),
+		viper.GetInt("IP_MAX_CALLS"),
+		viper.GetInt("API_KEY_MAX_CALLS"),
 	)
 
 	// Defining the handler
 	router := chi.NewRouter()
+	// Add all the moddlewares
 	router.Use(
 		middleware.RealIP,
 		middlewares.ApiKeyRetriever,
@@ -49,7 +58,7 @@ func run() error {
 	)
 	router.Handle("/", &controllers.Handler{})
 	server := http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%s", viper.GetString("SERVER_PORT")),
 		Handler: router,
 	}
 
